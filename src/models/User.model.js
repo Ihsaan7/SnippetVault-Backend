@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrpt from "bcrypt";
 
-const UserSchema = new mongooseSchema(
+const UserSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -37,9 +37,9 @@ const UserSchema = new mongooseSchema(
 
 // HASHING PASS before save
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return next;
   this.password = await bcrpt.hash(this.password, 10);
-  next();
+  next;
 });
 
 // COMPARE PASS before save

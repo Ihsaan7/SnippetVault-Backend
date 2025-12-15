@@ -16,7 +16,7 @@ app.get("/health", (req, res) => {
 });
 
 // -----------------Auth Route-------------------
-app.post("/api/v1/auth", authRoute);
+app.use("/api/v1/auth", authRoute);
 
 // ----------------- 404 Route -----------------------
 app.use((req, res) => {

@@ -1,5 +1,5 @@
-import ApiError from "../utils/ApiError";
-import AsyncHandler from "../utils/AsyncHandler";
+import ApiError from "../utils/ApiError.js";
+import AsyncHandler from "../utils/AsyncHandler.js";
 import userModel from "../models/User.model.js";
 import {
   genAccessToken,
@@ -85,12 +85,14 @@ const loginUser = AsyncHandler(async (req, res) => {
   }
 
   //Find user in DB
-  const user = await userModel.findOne({
-    $or: [
-      { username: identifier.toLowerCase() },
-      { email: identifier.toLowerCase() },
-    ],
-  });
+  const user = await userModel
+    .findOne({
+      $or: [
+        { username: identifier.toLowerCase() },
+        { email: identifier.toLowerCase() },
+      ],
+    })
+    .select("+password");
   if (!user) {
     throw new ApiError(404, "Invalid credentials!");
   }
