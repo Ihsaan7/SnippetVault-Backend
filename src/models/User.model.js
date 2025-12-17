@@ -8,9 +8,9 @@ const UserSchema = new mongooseSchema(
       required: [true, "Username is required!"],
       unique: true,
       trim: true,
-      minlength:3
+      minlength: 3,
     },
-    emial: {
+    email: {
       type: String,
       required: [true, "Email is required!"],
       unique: true,
@@ -23,10 +23,10 @@ const UserSchema = new mongooseSchema(
       select: false,
       required: [true, "Password is required!"],
     },
-    avatar:{
-        type:String,
-        default:"https://cdn-icons-png.flaticon.com/512/149/149071.png"
-    }
+    avatar: {
+      type: String,
+      default: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+    },
   },
   { collection: "users" },
   { timestamp: true }
