@@ -5,13 +5,14 @@ import {
   genAccessToken,
   genRefreshToken,
 } from "../services/genToken.service.js";
+import ApiResponse from "../utils/ApiResponse.js";
 
 const registerUser = AsyncHandler(async (req, res) => {
   // Get input
   // --------------- NOTE ADD MULTER -----------
   const { email, password, username } = req.body;
   // Validate
-  if ([username, password, email].some((fields) => !field.trim())) {
+  if ([username, password, email].some((field) => !field.trim())) {
     throw new ApiError(400, "All fields are required!");
   }
 
@@ -25,13 +26,17 @@ const registerUser = AsyncHandler(async (req, res) => {
 
   // Create new User
   const user = await userModel.create({
-    username,
-    email,
+    username: username.toLowerCase(),
+    email: email.toLowerCase(),
     password,
   });
 
+  // Fetch User without Pass
+  const createdUser = await userModel
+    .findById(user._id)
+    .select("-refreshToken -password");
+
   // Check for created User
-  const createdUser = await userModel.findOne(user._id);
   if (!createdUser) {
     throw new ApiError(
       500,
@@ -43,6 +48,10 @@ const registerUser = AsyncHandler(async (req, res) => {
   // Generate Token
   const accessToken = genAccessToken(user._id);
   const refreshToken = genRefreshToken(user._id);
+
+  // Save R-token in DB
+  user.refreshToken = refreshToken;
+  await user.save();
 
   const isProduction = process.env.NODE_ENV === "production";
 
@@ -61,4 +70,9 @@ const registerUser = AsyncHandler(async (req, res) => {
     ...cookieOptions,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
+
+  // Send RESPONSE
+  return res
+    .status(201)
+    .json(new ApiResponse(201, createdUser, "User created successfully"));
 });
