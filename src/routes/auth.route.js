@@ -14,6 +14,6 @@ router.get("/jwtTest", verifyJWT, (req, res) => {
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
-router.get("/logout", verifyJWT, logoutUser);
+router.post("/logout", verifyJWT, logoutUser);
 
 export default router;
