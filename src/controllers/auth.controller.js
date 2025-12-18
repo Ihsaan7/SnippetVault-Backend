@@ -76,3 +76,63 @@ const registerUser = AsyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, createdUser, "User created successfully"));
 });
+
+const loginUser = AsyncHandler(async (req, res) => {
+  // Get Data from Input
+  const { identifier, password } = req.body;
+  if (!identifier) {
+    throw new ApiError(400, "Username or Email is required!");
+  }
+
+  //Find user in DB
+  const user = await userModel.findOne({
+    $or: [
+      { username: identifier.toLowerCase() },
+      { email: identifier.toLowerCase() },
+    ],
+  });
+  if (!user) {
+    throw new ApiError(404, "Invalid credentials!");
+  }
+
+  //Check for pass
+  const validPass = await user.comparePass(password);
+  if (!validPass) {
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  //Generate Token
+  const accessToken = genAccessToken(user._id);
+  const refreshToken = genRefreshToken(user._id);
+
+  // Update RefreshToken in DB
+  user.refreshToken = refreshToken;
+  await user.save();
+
+  // Setting up Cookies
+  const isProduction = process.env.NODE_ENV === "production";
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: isProduction ? "None" : "Lax",
+    secure: isProduction,
+  };
+
+  res.cookie("accessToken", accessToken, {
+    ...cookieOptions,
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+  });
+  res.cookie("refreshToken", refreshToken, {
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { user: { _id: user._id, username: user.username, email: user.email } },
+        "User LoggedIn successfully"
+      )
+    );
+});
