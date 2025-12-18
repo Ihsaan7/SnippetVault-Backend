@@ -3,6 +3,7 @@ import ApiError from "./utils/ApiError.js";
 import AsyncHandler from "./utils/AsyncHandler.js";
 import ApiResponse from "./utils/ApiResponse.js";
 import ErrorHandler from "./middlewares/errorHandler.mware.js";
+import authRoute from "./routes/auth.route.js";
 
 const app = express();
 
@@ -13,6 +14,9 @@ app.use(express.json({ limit: "16kb" }));
 app.get("/health", (req, res) => {
   res.json({ message: "Server is Alive!" });
 });
+
+// -----------------Auth Route-------------------
+app.post("/api/v1/auth", authRoute);
 
 // ----------------- 404 Route -----------------------
 app.use((req, res) => {
