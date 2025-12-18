@@ -139,4 +139,30 @@ const loginUser = AsyncHandler(async (req, res) => {
     );
 });
 
-export { registerUser, loginUser };
+const logoutUser = AsyncHandler(async (req, res) => {
+  await userModel.findByIdAndUpdate(
+    req.user._id,
+    {
+      $unset: { refreshToken: "" },
+    },
+    {
+      new: true,
+    }
+  );
+
+  const isProduction = process.env.NODE_ENV === "production";
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: isProduction ? "None" : "Lax",
+    secure: isProduction,
+  };
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "User loggedOut successfully"));
+});
+
+export { registerUser, loginUser, logoutUser };

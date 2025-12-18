@@ -1,5 +1,9 @@
 import express from "express";
-import { loginUser, registerUser } from "../controllers/auth.controller.js";
+import {
+  loginUser,
+  logoutUser,
+  registerUser,
+} from "../controllers/auth.controller.js";
 import verifyJWT from "../middlewares/auth.mware.js";
 
 const router = express.Router();
@@ -10,5 +14,6 @@ router.get("/jwtTest", verifyJWT, (req, res) => {
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.get("/logout", verifyJWT, logoutUser);
 
 export default router;
