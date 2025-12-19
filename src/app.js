@@ -5,12 +5,31 @@ import AsyncHandler from "./utils/AsyncHandler.js";
 import ApiResponse from "./utils/ApiResponse.js";
 import ErrorHandler from "./middlewares/errorHandler.mware.js";
 import authRoute from "./routes/auth.route.js";
+import cors from "cors";
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+];
 const app = express();
 
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.json({ limit: "16kb" }));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 
 // ----------------- Test Route -----------------------
 app.get("/health", (req, res) => {
