@@ -1,11 +1,11 @@
-import ApiError from "../utils/ApiError";
-import AsyncHandler from "../utils/AsyncHandler";
+import ApiError from "../utils/ApiError.js";
+import AsyncHandler from "../utils/AsyncHandler.js";
 import SnippetModel from "../models/Snippet.model.js";
-import ApiResponse from "../utils/ApiResponse";
+import ApiResponse from "../utils/ApiResponse.js";
 
 const createSnippet = AsyncHandler(async (req, res) => {
   // Get Data and Validate
-  const { title, code, language, tags, description, isPublic } = req.body;
+  const { title, code, codeLanguage, tags, description, isPublic } = req.body;
   if (!title || !title.trim()) {
     throw new ApiError(400, "Title is required!");
   }
@@ -17,7 +17,7 @@ const createSnippet = AsyncHandler(async (req, res) => {
   const snippet = await SnippetModel.create({
     title: title.trim(),
     code,
-    language: language || "javascript",
+    codeLanguage: codeLanguage || "javascript",
     tags: tags || [],
     description: description || "",
     isPublic: isPublic || false,
@@ -107,7 +107,7 @@ const updateSnippet = AsyncHandler(async (req, res) => {
   }
 
   // Get Data
-  const { title, code, language, tags, description, isPublic } = req.body;
+  const { title, code, codeLanguage, tags, description, isPublic } = req.body;
 
   // Check for ownership
   if (snippet.owner.toString() !== req.user._id.toString()) {
@@ -120,7 +120,7 @@ const updateSnippet = AsyncHandler(async (req, res) => {
   // Update only those = Provided
   if (title !== undefined) snippet.title = title.trim();
   if (code !== undefined) snippet.code = code;
-  if (language !== undefined) snippet.language = language;
+  if (codeLanguage !== undefined) snippet.codeLanguage = codeLanguage;
   if (tags !== undefined) snippet.tags = tags;
   if (description !== undefined) snippet.description = description;
   if (isPublic !== undefined) snippet.isPublic = isPublic;

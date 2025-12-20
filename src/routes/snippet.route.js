@@ -6,7 +6,7 @@ import {
   updateSnippet,
   deleteSnippet,
 } from "../controllers/snippet.controller.js";
-import { verifyJWT } from "../middlewares/auth.mware.js";
+import verifyJWT from "../middlewares/auth.mware.js";
 
 const router = Router();
 

@@ -13,7 +13,7 @@ const SnippetSchema = new mongoose.Schema(
       type: String,
       required: [true, "Code content is required!"],
     },
-    language: {
+    codeLanguage: {
       type: String,
       required: true,
       default: "javascript",
@@ -47,4 +47,5 @@ const SnippetSchema = new mongoose.Schema(
 //Compound Indexing
 SnippetSchema.index({ title: "text", tags: "text" });
 
-export const Snippet = mongoose.model("Snippet", SnippetSchema);
+const Snippet = mongoose.model("Snippet", SnippetSchema);
+export default Snippet;
