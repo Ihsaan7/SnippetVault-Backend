@@ -5,6 +5,7 @@ import AsyncHandler from "./utils/AsyncHandler.js";
 import ApiResponse from "./utils/ApiResponse.js";
 import ErrorHandler from "./middlewares/errorHandler.mware.js";
 import authRoute from "./routes/auth.route.js";
+import snippetRoute from "./routes/snippet.route.js";
 import cors from "cors";
 
 const allowedOrigins = [
@@ -38,6 +39,9 @@ app.get("/health", (req, res) => {
 
 // -----------------Auth Route-------------------
 app.use("/api/v1/auth", authRoute);
+
+// -----------------Snippet Route-------------------
+app.use("/api/v1/snippets", snippetRoute);
 
 // ----------------- 404 Route -----------------------
 app.use((req, res) => {
