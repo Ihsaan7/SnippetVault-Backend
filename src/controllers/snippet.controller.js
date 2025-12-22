@@ -41,21 +41,33 @@ const createSnippet = AsyncHandler(async (req, res) => {
 });
 
 const getSnippet = AsyncHandler(async (req, res) => {
-  // Get first 10 Search
+  // Parse paging & search params safely
   const { page = 1, limit = 10, search = "" } = req.query;
+  const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+  const limitNumber = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+
   const query = { owner: req.user._id };
-  if (search) {
-    query.$text = { $search: search };
+  const trimmedSearch = search.trim();
+  if (trimmedSearch) {
+    // Use case-insensitive substring match so multi-word phrases stay together
+    const escaped = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const phraseRegex = new RegExp(escaped, "i");
+    query.$or = [
+      { title: phraseRegex },
+      { description: phraseRegex },
+      { tags: { $elemMatch: { $regex: phraseRegex } } },
+    ];
   }
 
   // Get snippets ( limit )
   const snippets = await SnippetModel.find(query)
     .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(parseInt(limit));
+    .skip((pageNumber - 1) * limitNumber)
+    .limit(limitNumber);
 
   // Page calculate
   const total = await SnippetModel.countDocuments(query);
+  const totalPages = Math.max(1, Math.ceil(total / limitNumber));
 
   // Return res
   return res.status(200).json(
@@ -65,9 +77,9 @@ const getSnippet = AsyncHandler(async (req, res) => {
         snippets,
         pagination: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(total / limit),
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
         },
       },
       "Snippet retreived successfully"
