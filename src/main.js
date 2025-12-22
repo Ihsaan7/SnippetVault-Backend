@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
+dotenv.config();
+
 import app from "./app.js";
 import connectDB from "./DB/db.js";
-
-dotenv.config();
 
 connectDB().catch((err) => {
   console.log("Error while Connection to MONGODB!!!", err);

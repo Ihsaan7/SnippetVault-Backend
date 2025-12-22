@@ -6,14 +6,26 @@ import {
   genRefreshToken,
 } from "../services/genToken.service.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import { uploadOnCloudi } from "../utils/Cloudinary.js";
 
+// REGISTER
 const registerUser = AsyncHandler(async (req, res) => {
   // Get input
-  // --------------- NOTE ADD MULTER -----------
   const { email, password, username } = req.body;
   // Validate
   if ([username, password, email].some((field) => !field.trim())) {
     throw new ApiError(400, "All fields are required!");
+  }
+
+  // Avatar
+  const avatarFile = req.files?.avatar?.[0];
+  if (!avatarFile) {
+    throw new ApiError(400, "Avatar is missing!");
+  }
+
+  const avatar = await uploadOnCloudi(avatarFile.path || avatarFile);
+  if (!avatar) {
+    throw new ApiError(400, "Avatar file is missing!");
   }
 
   // Check for existing user
@@ -29,6 +41,7 @@ const registerUser = AsyncHandler(async (req, res) => {
     username: username.toLowerCase(),
     email: email.toLowerCase(),
     password,
+    avatar: avatar.url,
   });
 
   // Fetch User without Pass
@@ -76,7 +89,7 @@ const registerUser = AsyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, createdUser, "User created successfully"));
 });
-
+// LOGIN
 const loginUser = AsyncHandler(async (req, res) => {
   // Get Data from Input
   const { identifier, password } = req.body;
@@ -138,7 +151,7 @@ const loginUser = AsyncHandler(async (req, res) => {
       )
     );
 });
-
+// LOGOUT
 const logoutUser = AsyncHandler(async (req, res) => {
   await userModel.findByIdAndUpdate(
     req.user._id,
@@ -163,6 +176,40 @@ const logoutUser = AsyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "User loggedOut successfully"));
+});
+// PROFILE
+const profileUser = AsyncHandler(async (req, res) => {
+  const user = req.user._id;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized!");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Profile fetched successfully"));
+});
+
+// ACCESS TOKEN REFRESH
+const refreshAccessToken = AsyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookie.RefreshToken || req.body.RefreshToken;
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized Request!");
+  }
+
+  const decodedToken = jwt.verify(
+    incomingRefreshToken,
+    process.env.REFRESH_TOKEN
+  );
+
+  const user = await userModel.findById(decodedToken?._id);
+  if (!user) {
+    throw new ApiError(401, " Invalid Refresh Token!");
+  }
+});
+
+// UPDATE PROFILE ( email / username )
+const updateProfile = AsyncHandler(async (req, res) => {
+  const { username, email } = req.body;
 });
 
 export { registerUser, loginUser, logoutUser };
