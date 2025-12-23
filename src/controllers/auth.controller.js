@@ -300,7 +300,7 @@ const changeCurrentPass = AsyncHandler(async (req, res) => {
 
   const correctPass = await user.comparePass(oldPass);
   if (!correctPass) {
-    throw new ApiError(401, "Invalid old password!");
+    throw new ApiError(400, "Invalid old password!");
   }
 
   user.password = newPass;
