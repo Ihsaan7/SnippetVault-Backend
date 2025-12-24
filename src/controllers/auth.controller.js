@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import ApiError from "../utils/ApiError.js";
 import AsyncHandler from "../utils/AsyncHandler.js";
 import userModel from "../models/User.model.js";
@@ -344,6 +345,66 @@ const updateAvatar = AsyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Avatar image updated successfully"));
 });
 
+// RESET / FORGOT Password
+const forgotPassword = AsyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  // Step 1 & 2: Validate email
+  if (!email || !email.trim()) {
+    throw new ApiError(400, "Email is required!");
+  }
+
+  // Step 3: Find user by email
+  const user = await userModel.findOne({ email: email.toLowerCase() });
+
+  // Generic response so attackers can't tell if email exists
+  if (!user) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {},
+          "If email exists, reset link will be sent to your inbox"
+        )
+      );
+  }
+
+  // Step 4: Generate reset token (random 32 bytes = 64 hex characters)
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  // Hash the token for storage (safer in case DB is breached)
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Step 5: Set expiry time (15 minutes from now)
+  const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+
+  // Step 6: Save to DB
+  user.resetToken = hashedToken;
+  user.resetTokenExpiry = resetTokenExpiry;
+  await user.save({ validateBeforeSave: false });
+
+  // Step 7: Send email (for now, just log it)
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+  console.log(`[PASSWORD RESET] Email: ${email}`);
+  console.log(`[PASSWORD RESET] Reset URL: ${resetUrl}`);
+  // TODO: Replace with nodemailer when adding email service
+
+  // Step 8: Return success response
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "If email exists, reset link will be sent to your inbox"
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -353,4 +414,5 @@ export {
   changeAccountDetails,
   changeCurrentPass,
   updateAvatar,
+  forgotPassword,
 };

@@ -35,6 +35,16 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
     },
+    resetToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    resetTokenExpiry: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   { collection: "users" },
   { timestamp: true }
