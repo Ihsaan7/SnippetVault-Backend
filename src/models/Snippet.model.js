@@ -51,7 +51,8 @@ const SnippetSchema = new mongoose.Schema(
 SnippetSchema.index({ title: "text", tags: "text" });
 SnippetSchema.index({ tags: 1 });
 
-SnippetSchema.pre("save", function (next) {
+// Mongoose v9 middleware uses promise/async style — no `next` callback
+SnippetSchema.pre("save", function () {
   if (this.tags) {
     this.tags = [
       ...new Set(
@@ -61,7 +62,6 @@ SnippetSchema.pre("save", function (next) {
       ),
     ];
   }
-  next();
 });
 
 const Snippet = mongoose.model("Snippet", SnippetSchema);

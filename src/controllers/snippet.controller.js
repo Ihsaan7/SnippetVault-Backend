@@ -42,7 +42,7 @@ const createSnippet = AsyncHandler(async (req, res) => {
 
 const getSnippet = AsyncHandler(async (req, res) => {
   // Parse paging & search params safely
-  const { page = 1, limit = 10, search = "" } = req.query;
+  const { page = 1, limit = 10, search = "", tags = "" } = req.query;
   const pageNumber = Math.max(1, parseInt(page, 10) || 1);
   const limitNumber = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
 
@@ -57,6 +57,15 @@ const getSnippet = AsyncHandler(async (req, res) => {
       { description: phraseRegex },
       { tags: { $elemMatch: { $regex: phraseRegex } } },
     ];
+  }
+
+  // Tag filter support: ?tags=a,b,c -> filter snippets containing ALL provided tags
+  const tagList = String(tags)
+    .split(",")
+    .map((t) => t.toLowerCase().trim())
+    .filter((t) => t.length > 0);
+  if (tagList.length > 0) {
+    query.tags = { $all: tagList };
   }
 
   // Get snippets ( limit )
@@ -170,10 +179,38 @@ const deleteSnippet = AsyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Snippet deleted successfully"));
 });
 
+const getAllTags = AsyncHandler(async (req, res) => {
+  const tags = await SnippetModel.distinct("tags", { owner: req.user._id });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { tags: tags.sort() }, "Tags retrieved successfully")
+    );
+});
+
+const getTagStats = AsyncHandler(async (req, res) => {
+  const stats = await SnippetModel.aggregate([
+    { $match: { owner: req.user._id } },
+    { $unwind: "$tags" },
+    { $group: { _id: "$tags", count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $project: { _id: 0, tag: "$_id", count: 1 } },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { stats }, "Tag statistics retrieved successfully")
+    );
+});
+
 export {
   createSnippet,
   getSnippet,
   getSnippetById,
   updateSnippet,
   deleteSnippet,
+  getAllTags,
+  getTagStats,
 };
