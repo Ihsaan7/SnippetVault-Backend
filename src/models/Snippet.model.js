@@ -24,13 +24,16 @@ const SnippetSchema = new mongoose.Schema(
       trim: true,
       maxLength: 500,
     },
-    tags: [
-      {
-        type: String,
-        trim: true,
-        lowercase: true,
+    tags: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (tags) {
+          return tags.length <= 10;
+        },
+        message: "A snippet can have max 10 tags!",
       },
-    ],
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -46,6 +49,20 @@ const SnippetSchema = new mongoose.Schema(
 
 //Compound Indexing
 SnippetSchema.index({ title: "text", tags: "text" });
+SnippetSchema.index({ tags: 1 });
+
+SnippetSchema.pre("save", function (next) {
+  if (this.tags) {
+    this.tags = [
+      ...new Set(
+        this.tags
+          .map((tag) => tag.toLowerCase().trim())
+          .filter((tag) => tag.length > 0)
+      ),
+    ];
+  }
+  next();
+});
 
 const Snippet = mongoose.model("Snippet", SnippetSchema);
 export default Snippet;
