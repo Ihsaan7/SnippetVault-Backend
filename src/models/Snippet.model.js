@@ -18,6 +18,7 @@ const SnippetSchema = new mongoose.Schema(
       required: true,
       default: "javascript",
       lowercase: true,
+      index: true,
     },
     description: {
       type: String,
@@ -42,13 +43,34 @@ const SnippetSchema = new mongoose.Schema(
     isPublic: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    favoritedBy: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
+    forkedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Snippet",
+      default: null,
     },
   },
   { timestamps: true }
 );
 
-//Compound Indexing
-SnippetSchema.index({ title: "text", tags: "text" });
+// Compound Indexing
+// Text index for full-text-ish search (Mongo text index) across common fields
+SnippetSchema.index({
+  title: "text",
+  description: "text",
+  tags: "text",
+  code: "text",
+});
 SnippetSchema.index({ tags: 1 });
 
 // Mongoose v9 middleware uses promise/async style — no `next` callback

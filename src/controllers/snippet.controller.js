@@ -3,6 +3,32 @@ import AsyncHandler from "../utils/AsyncHandler.js";
 import SnippetModel from "../models/Snippet.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
+const enrichSnippetForUser = (snippet, userId) => {
+  if (!snippet) return snippet;
+  const obj = typeof snippet.toObject === "function" ? snippet.toObject() : snippet;
+  const favoritedBy = Array.isArray(obj.favoritedBy) ? obj.favoritedBy : [];
+  const isFavorited = userId
+    ? favoritedBy.some((id) => id?.toString?.() === userId?.toString?.())
+    : false;
+
+  return {
+    ...obj,
+    favoriteCount: favoritedBy.length,
+    isFavorited,
+  };
+};
+
+const enrichSnippetPublic = (snippet) => {
+  if (!snippet) return snippet;
+  const obj = typeof snippet.toObject === "function" ? snippet.toObject() : snippet;
+  const favoritedBy = Array.isArray(obj.favoritedBy) ? obj.favoritedBy : [];
+
+  return {
+    ...obj,
+    favoriteCount: favoritedBy.length,
+  };
+};
+
 const createSnippet = AsyncHandler(async (req, res) => {
   // Get Data and Validate
   const { title, code, codeLanguage, tags, description, isPublic } = req.body;
@@ -37,16 +63,49 @@ const createSnippet = AsyncHandler(async (req, res) => {
   // Return res
   return res
     .status(201)
-    .json(new ApiResponse(201, snippet, "Snippet created successfully"));
+    .json(
+      new ApiResponse(
+        201,
+        enrichSnippetForUser(snippet, req.user._id),
+        "Snippet created successfully"
+      )
+    );
 });
 
 const getSnippet = AsyncHandler(async (req, res) => {
   // Parse paging & search params safely
-  const { page = 1, limit = 10, search = "", tags = "" } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    tags = "",
+    language = "",
+    from = "",
+    to = "",
+  } = req.query;
   const pageNumber = Math.max(1, parseInt(page, 10) || 1);
   const limitNumber = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
 
   const query = { owner: req.user._id };
+
+  // Language filtering
+  const trimmedLanguage = String(language).trim().toLowerCase();
+  if (trimmedLanguage) {
+    query.codeLanguage = trimmedLanguage;
+  }
+
+  // Date range filtering
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+  if (
+    (fromDate && !Number.isNaN(fromDate.getTime())) ||
+    (toDate && !Number.isNaN(toDate.getTime()))
+  ) {
+    query.createdAt = {};
+    if (fromDate && !Number.isNaN(fromDate.getTime())) query.createdAt.$gte = fromDate;
+    if (toDate && !Number.isNaN(toDate.getTime())) query.createdAt.$lte = toDate;
+  }
+
   const trimmedSearch = search.trim();
   if (trimmedSearch) {
     // Use case-insensitive substring match so multi-word phrases stay together
@@ -55,6 +114,7 @@ const getSnippet = AsyncHandler(async (req, res) => {
     query.$or = [
       { title: phraseRegex },
       { description: phraseRegex },
+      { code: phraseRegex },
       { tags: { $elemMatch: { $regex: phraseRegex } } },
     ];
   }
@@ -74,6 +134,8 @@ const getSnippet = AsyncHandler(async (req, res) => {
     .skip((pageNumber - 1) * limitNumber)
     .limit(limitNumber);
 
+  const formatted = snippets.map((s) => enrichSnippetForUser(s, req.user._id));
+
   // Page calculate
   const total = await SnippetModel.countDocuments(query);
   const totalPages = Math.max(1, Math.ceil(total / limitNumber));
@@ -83,7 +145,7 @@ const getSnippet = AsyncHandler(async (req, res) => {
     new ApiResponse(
       200,
       {
-        snippets,
+        snippets: formatted,
         pagination: {
           total,
           page: pageNumber,
@@ -116,7 +178,13 @@ const getSnippetById = AsyncHandler(async (req, res) => {
   // Return snippet
   return res
     .status(200)
-    .json(new ApiResponse(200, snippet, "Snippet fetched successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        enrichSnippetForUser(snippet, req.user._id),
+        "Snippet fetched successfully"
+      )
+    );
 });
 
 const updateSnippet = AsyncHandler(async (req, res) => {
@@ -151,7 +219,13 @@ const updateSnippet = AsyncHandler(async (req, res) => {
   // Return res
   return res
     .status(200)
-    .json(new ApiResponse(200, snippet, "Snippet updated successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        enrichSnippetForUser(snippet, req.user._id),
+        "Snippet updated successfully"
+      )
+    );
 });
 
 const deleteSnippet = AsyncHandler(async (req, res) => {
@@ -205,6 +279,236 @@ const getTagStats = AsyncHandler(async (req, res) => {
     );
 });
 
+const toggleFavorite = AsyncHandler(async (req, res) => {
+  const { snippetID } = req.params;
+
+  const snippet = await SnippetModel.findById(snippetID);
+  if (!snippet) throw new ApiError(404, "Snippet not found!");
+
+  const isOwner = snippet.owner?.toString?.() === req.user._id.toString();
+  if (!isOwner && !snippet.isPublic) {
+    throw new ApiError(403, "You don't have permission to favorite this snippet!");
+  }
+
+  const already = (snippet.favoritedBy || []).some(
+    (id) => id?.toString?.() === req.user._id.toString()
+  );
+
+  if (already) {
+    snippet.favoritedBy = (snippet.favoritedBy || []).filter(
+      (id) => id?.toString?.() !== req.user._id.toString()
+    );
+  } else {
+    snippet.favoritedBy = [...(snippet.favoritedBy || []), req.user._id];
+  }
+
+  await snippet.save();
+
+  const payload = enrichSnippetForUser(snippet, req.user._id);
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        snippetID: snippet._id,
+        isFavorited: payload.isFavorited,
+        favoriteCount: payload.favoriteCount,
+      },
+      "Favorite updated"
+    )
+  );
+});
+
+const getFavoriteSnippets = AsyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+  const limitNumber = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+
+  const query = {
+    favoritedBy: req.user._id,
+    $or: [{ owner: req.user._id }, { isPublic: true }],
+  };
+
+  const snippets = await SnippetModel.find(query)
+    .sort({ createdAt: -1 })
+    .skip((pageNumber - 1) * limitNumber)
+    .limit(limitNumber);
+
+  const total = await SnippetModel.countDocuments(query);
+  const totalPages = Math.max(1, Math.ceil(total / limitNumber));
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        snippets: snippets.map((s) => enrichSnippetForUser(s, req.user._id)),
+        pagination: {
+          total,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
+        },
+      },
+      "Favorite snippets retrieved successfully"
+    )
+  );
+});
+
+const getPublicSnippets = AsyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    tags = "",
+    language = "",
+    from = "",
+    to = "",
+  } = req.query;
+
+  const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+  const limitNumber = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+
+  const query = { isPublic: true };
+
+  const trimmedLanguage = String(language).trim().toLowerCase();
+  if (trimmedLanguage) {
+    query.codeLanguage = trimmedLanguage;
+  }
+
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+  if (
+    (fromDate && !Number.isNaN(fromDate.getTime())) ||
+    (toDate && !Number.isNaN(toDate.getTime()))
+  ) {
+    query.createdAt = {};
+    if (fromDate && !Number.isNaN(fromDate.getTime())) query.createdAt.$gte = fromDate;
+    if (toDate && !Number.isNaN(toDate.getTime())) query.createdAt.$lte = toDate;
+  }
+
+  const trimmedSearch = search.trim();
+  if (trimmedSearch) {
+    const escaped = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const phraseRegex = new RegExp(escaped, "i");
+    query.$or = [
+      { title: phraseRegex },
+      { description: phraseRegex },
+      { code: phraseRegex },
+      { tags: { $elemMatch: { $regex: phraseRegex } } },
+    ];
+  }
+
+  const tagList = String(tags)
+    .split(",")
+    .map((t) => t.toLowerCase().trim())
+    .filter((t) => t.length > 0);
+  if (tagList.length > 0) {
+    query.tags = { $all: tagList };
+  }
+
+  const snippets = await SnippetModel.find(query)
+    .populate("owner", "username")
+    .sort({ createdAt: -1 })
+    .skip((pageNumber - 1) * limitNumber)
+    .limit(limitNumber);
+
+  const total = await SnippetModel.countDocuments(query);
+  const totalPages = Math.max(1, Math.ceil(total / limitNumber));
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        snippets: snippets.map(enrichSnippetPublic),
+        pagination: {
+          total,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
+        },
+      },
+      "Public snippets retrieved successfully"
+    )
+  );
+});
+
+const getPublicSnippetById = AsyncHandler(async (req, res) => {
+  const { snippetID } = req.params;
+
+  const snippet = await SnippetModel.findOne({ _id: snippetID, isPublic: true }).populate(
+    "owner",
+    "username"
+  );
+  if (!snippet) throw new ApiError(404, "Public snippet not found!");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, enrichSnippetPublic(snippet), "Public snippet fetched"));
+});
+
+const forkSnippet = AsyncHandler(async (req, res) => {
+  const { snippetID } = req.params;
+
+  const source = await SnippetModel.findOne({ _id: snippetID, isPublic: true });
+  if (!source) throw new ApiError(404, "Public snippet not found!");
+
+  const fork = await SnippetModel.create({
+    title: source.title,
+    code: source.code,
+    codeLanguage: source.codeLanguage,
+    tags: source.tags || [],
+    description: source.description || "",
+    owner: req.user._id,
+    isPublic: false,
+    forkedFrom: source._id,
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, enrichSnippetForUser(fork, req.user._id), "Snippet forked"));
+});
+
+const getSnippetStats = AsyncHandler(async (req, res) => {
+  const owner = req.user._id;
+
+  const totalSnippets = await SnippetModel.countDocuments({ owner });
+
+  const mostUsedLanguages = await SnippetModel.aggregate([
+    { $match: { owner } },
+    { $group: { _id: "$codeLanguage", count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 10 },
+    { $project: { _id: 0, language: "$_id", count: 1 } },
+  ]);
+
+  const recentActivity = await SnippetModel.find({ owner })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .select("title codeLanguage createdAt isPublic");
+
+  const storageAgg = await SnippetModel.aggregate([
+    { $match: { owner } },
+    { $project: { len: { $strLenCP: "$code" } } },
+    { $group: { _id: null, totalChars: { $sum: "$len" } } },
+  ]);
+  const storageUsageChars = storageAgg?.[0]?.totalChars || 0;
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        totalSnippets,
+        mostUsedLanguages,
+        recentActivity,
+        storageUsage: {
+          unit: "chars",
+          total: storageUsageChars,
+        },
+      },
+      "Snippet statistics retrieved successfully"
+    )
+  );
+});
+
 export {
   createSnippet,
   getSnippet,
@@ -213,4 +517,10 @@ export {
   deleteSnippet,
   getAllTags,
   getTagStats,
+  toggleFavorite,
+  getFavoriteSnippets,
+  getPublicSnippets,
+  getPublicSnippetById,
+  forkSnippet,
+  getSnippetStats,
 };
