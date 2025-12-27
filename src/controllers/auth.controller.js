@@ -87,13 +87,13 @@ const registerUser = AsyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
-  // Send RESPONSE (shape matches login)
+  // Send RESPONSE (include tokens in body for cross-domain deployments)
   return res
     .status(201)
     .json(
       new ApiResponse(
         201,
-        { user: createdUser },
+        { user: createdUser, accessToken, refreshToken },
         "User created successfully"
       )
     );
@@ -155,7 +155,11 @@ const loginUser = AsyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: { _id: user._id, username: user.username, email: user.email } },
+        {
+          user: { _id: user._id, username: user.username, email: user.email },
+          accessToken,
+          refreshToken,
+        },
         "User LoggedIn successfully"
       )
     );

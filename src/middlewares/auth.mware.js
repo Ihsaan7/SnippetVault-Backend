@@ -8,23 +8,28 @@ import {
 } from "../services/genToken.service.js";
 
 const verifyJWT = AsyncHandler(async (req, res, next) => {
-  // Get token
+  // Get token (prefer Authorization header for cross-domain deployments like Vercel)
   const token =
-    req.cookies?.accessToken ||
-    req.header("Authorization")?.replace("Bearer ", "");
+    req.header("Authorization")?.replace("Bearer ", "") ||
+    req.cookies?.accessToken;
   if (!token) {
-    throw new ApiError(404, "Unauthorized Access!", "JWT_VERIFY");
+    throw new ApiError(401, "Unauthorized Access!", "JWT_VERIFY");
   }
 
   // Verify Token
-  const decodeToken = await jwt.verify(token, process.env.ACCESS_TOKEN);
+  let decodeToken;
+  try {
+    decodeToken = await jwt.verify(token, process.env.ACCESS_TOKEN);
+  } catch {
+    throw new ApiError(401, "Unauthorized Access!", "JWT_VERIFY");
+  }
   // Fetch User
   const user = await userModel
     .findById(decodeToken._id)
     .select("-refreshToken  -password");
   // Validate User
   if (!user) {
-    throw new ApiError(404, "Unauthorized Access!", "JWT_VERIFY");
+    throw new ApiError(401, "Unauthorized Access!", "JWT_VERIFY");
   }
 
   req.user = user;
