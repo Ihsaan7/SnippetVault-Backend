@@ -13,7 +13,24 @@ const allowedOrigins = [
   "http://localhost:5000",
   "http://localhost:3000",
   process.env.FRONTEND_URL,
-];
+].filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+
+  // Allow Vercel preview + prod domains without needing to constantly update FRONTEND_URL.
+  // If you want this locked down, remove this and only use FRONTEND_URL.
+  try {
+    const url = new URL(origin);
+    if (url.hostname.endsWith(".vercel.app")) return true;
+  } catch {
+    // ignore
+  }
+
+  return false;
+};
+
 const app = express();
 
 app.use(cookieParser());
@@ -22,12 +39,8 @@ app.use(express.json({ limit: "16kb" }));
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })

@@ -52,9 +52,9 @@ const UserSchema = new mongoose.Schema(
 
 // HASHING PASS before save
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next;
+  if (!this.isModified("password")) return next();
   this.password = await bcrpt.hash(this.password, 10);
-  next;
+  return next();
 });
 
 // COMPARE PASS before save
