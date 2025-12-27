@@ -1,16 +1,82 @@
-# React + Vite
+# SnippetVault — Backend (Server) 🧠
+Express + MongoDB API for SnippetVault.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## What this backend does
+- Auth: register/login/logout/refresh
+- Snippet CRUD
+- Favorites
+- Public snippets + share links
+- Fork public snippets
+- Search + filters (tags/language/date range)
+- Stats endpoints
 
-Currently, two official plugins are available:
+## Tech Stack
+- Node.js (ESM)
+- Express
+- MongoDB + Mongoose
+- JWT
+- Multer
+- Cloudinary
+- CORS + cookie-parser
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## API Base
+All routes are mounted under:
+- `/api/v1`
 
-## React Compiler
+Health:
+- `GET /health`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Key Endpoints (high level)
+Auth:
+- `POST /api/v1/auth/register` (multipart/form-data, requires `avatar`)
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout` (protected)
+- `GET /api/v1/auth/profile` (protected)
 
-## Expanding the ESLint configuration
+Snippets:
+- `GET /api/v1/snippets/public`
+- `GET /api/v1/snippets/public/:snippetID`
+- `POST /api/v1/snippets/create` (protected)
+- `GET /api/v1/snippets` (protected)
+- `GET /api/v1/snippets/stats` (protected)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Auth (important for deployment)
+For Vercel deployments, auth uses Authorization header tokens:
+- API returns `accessToken` + `refreshToken` in the response body
+- Client sends `Authorization: Bearer <accessToken>`
+
+## Environment Variables
+Set on Vercel (Server project) or in `Server/.env` locally:
+
+Mongo:
+- `MONGODB_URI`
+
+JWT:
+- `ACCESS_TOKEN`
+- `ACCESS_TOKEN_EXPIRY` (example: `1d`)
+- `REFRESH_TOKEN`
+- `REFRESH_TOKEN_EXPIRY` (example: `7d`)
+
+Frontend:
+- `FRONTEND_URL` (example: `https://<your-frontend>.vercel.app`)
+
+Cloudinary:
+- `CLOUDI_NAME`
+- `CLOUDI_API_KEY`
+- `CLOUDI_API_SECRET`
+
+## Run locally
+From `Server/`:
+- `npm install`
+- `npm run dev`
+
+## Deploy (Vercel)
+Backend deploy uses serverless function entry + routing:
+- `Server/api/index.js`
+- `Server/vercel.json`
+
+Serverless notes:
+- Uploads use `/tmp` on Vercel.
+- Mongo connection is cached across invocations.
+
+See `../DEPLOYMENT_ISSUES.md` for deployment gotchas and fixes.
