@@ -87,10 +87,16 @@ const registerUser = AsyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
-  // Send RESPONSE
+  // Send RESPONSE (shape matches login)
   return res
     .status(201)
-    .json(new ApiResponse(201, createdUser, "User created successfully"));
+    .json(
+      new ApiResponse(
+        201,
+        { user: createdUser },
+        "User created successfully"
+      )
+    );
 });
 // LOGIN
 const loginUser = AsyncHandler(async (req, res) => {
