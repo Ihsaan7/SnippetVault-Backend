@@ -46,15 +46,16 @@ const UserSchema = new mongoose.Schema(
       select: false,
     },
   },
-  { collection: "users" },
-  { timestamp: true }
+  {
+    collection: "users",
+    timestamps: true,
+  }
 );
 
-// HASHING PASS before save
-UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+// HASHING PASS before save (promise-based middleware - no next() in async)
+UserSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
   this.password = await bcrpt.hash(this.password, 10);
-  return next();
 });
 
 // COMPARE PASS before save
